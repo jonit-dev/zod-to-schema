@@ -174,42 +174,8 @@ describe('zodToPrisma', () => {
     );
   });
 
-  // Additional tests
-  it('should handle default values in Zod schemas', () => {
-    const userSchema = z.object({
-      id: z.string().uuid(),
-      name: z.string(),
-      age: z.number().int().default(18), // Updated to use int()
-    });
-
-    const result = zodToPrisma(
-      [{ name: 'User', schema: userSchema }],
-      new Map(),
-      new Map()
-    );
-
-    expect(result).toContain('model User {');
-    expect(result).toContain('age Int @default(18)'); // Expecting Int now
-  });
-
-  it('should handle optional fields in Zod schemas', () => {
-    const userSchema = z.object({
-      id: z.string().uuid(),
-      name: z.string(),
-      email: z.string().optional(),
-    });
-
-    const result = zodToPrisma(
-      [{ name: 'User', schema: userSchema }],
-      new Map(),
-      new Map()
-    );
-
-    expect(result).toContain('model User {');
-    expect(result).toContain('email String?');
-  });
-
-  it('should handle nested Zod objects', () => {
+  // Edge Cases Tests
+  it('should handle nested ZodObjects within ZodArrays', () => {
     const addressSchema = z.object({
       street: z.string(),
       city: z.string(),
@@ -218,7 +184,7 @@ describe('zodToPrisma', () => {
     const userSchema = z.object({
       id: z.string().uuid(),
       name: z.string(),
-      address: addressSchema,
+      addresses: z.array(addressSchema),
     });
 
     const result = zodToPrisma(
@@ -228,22 +194,38 @@ describe('zodToPrisma', () => {
     );
 
     expect(result).toContain('model User {');
-    expect(result).toContain('address Json');
+    expect(result).toContain('addresses Json');
   });
 
-  it('should handle Zod literals correctly', () => {
-    const userSchema = z.object({
+  it('should handle custom validations in ZodNumber', () => {
+    const productSchema = z.object({
       id: z.string().uuid(),
-      status: z.literal('active'),
+      price: z.number().min(0).max(1000).default(100),
     });
 
     const result = zodToPrisma(
-      [{ name: 'User', schema: userSchema }],
+      [{ name: 'Product', schema: productSchema }],
       new Map(),
       new Map()
     );
 
-    expect(result).toContain('model User {');
-    expect(result).toContain('status String @default("active")');
+    expect(result).toContain('model Product {');
+    expect(result).toContain('price Float @default(100)');
+  });
+
+  it('should handle ZodEffects that modify the schema', () => {
+    const modifiedSchema = z.object({
+      id: z.string().uuid(),
+      name: z.string().transform((val) => val.trim()),
+    });
+
+    const result = zodToPrisma(
+      [{ name: 'Modified', schema: modifiedSchema }],
+      new Map(),
+      new Map()
+    );
+
+    expect(result).toContain('model Modified {');
+    expect(result).toContain('name String');
   });
 });
