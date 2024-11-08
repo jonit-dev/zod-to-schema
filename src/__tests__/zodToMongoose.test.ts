@@ -1,5 +1,7 @@
+// tests/zodToMongoose.test.ts
 import mongoose from 'mongoose';
 import { z } from 'zod';
+import { zodRef } from '../zodReferences';
 import {
   createMongooseModel,
   zodToMongoose,
@@ -44,7 +46,7 @@ describe('zodToMongoose', () => {
     expect(mongooseSchema.email).toEqual(
       expect.objectContaining({
         type: String,
-        match: expect.any(RegExp),
+        match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         required: true,
       })
     );
@@ -178,85 +180,156 @@ describe('zodToMongoose', () => {
   });
 
   describe('Relationships', () => {
-    // One-to-One Relationship
-    it('should handle one-to-one relationships', () => {
+    // One-to-One Relationship using zodRef
+    it('should handle one-to-one relationships using zodRef', () => {
       const userSchema = z.object({
         name: z.string(),
         email: z.string().email(),
-        preferences: z.object({
-          theme: z.string(),
-          notifications: z.boolean(),
-        }),
       });
 
-      const mongooseSchema = zodToMongoose(userSchema);
+      const profileSchema = z.object({
+        bio: z.string(),
+        user: zodRef('User', z.string().length(24)), // Reference to User model
+      });
 
-      expect(mongooseSchema.preferences).toEqual(
+      const mongooseSchema = zodToMongoose(profileSchema);
+
+      expect(mongooseSchema.bio).toEqual(
         expect.objectContaining({
-          type: mongoose.Schema.Types.Mixed,
+          type: String,
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.user).toEqual(
+        expect.objectContaining({
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
           required: true,
         })
       );
     });
 
-    // One-to-Many Relationship
-    it('should handle one-to-many relationships', () => {
-      const zodSchema = z.object({
-        author: z.object({
-          name: z.string(),
-        }),
-        posts: z.array(
-          z.object({
-            title: z.string(),
-            content: z.string(),
-          })
-        ),
+    // One-to-Many Relationship using zodRef
+    it('should handle one-to-many relationships using zodRef', () => {
+      const authorSchema = z.object({
+        name: z.string(),
       });
 
-      const mongooseSchema = zodToMongoose(zodSchema);
+      const postSchema = z.object({
+        title: z.string(),
+        content: z.string(),
+        author: zodRef('Author', z.string().length(24)), // Reference to Author model
+      });
+
+      const mongooseSchema = zodToMongoose(postSchema);
+
+      expect(mongooseSchema.title).toEqual(
+        expect.objectContaining({
+          type: String,
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.content).toEqual(
+        expect.objectContaining({
+          type: String,
+          required: true,
+        })
+      );
 
       expect(mongooseSchema.author).toEqual(
         expect.objectContaining({
-          type: mongoose.Schema.Types.Mixed,
-          required: true,
-        })
-      );
-
-      expect(mongooseSchema.posts).toEqual(
-        expect.objectContaining({
-          type: [mongoose.Schema.Types.Mixed],
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Author',
           required: true,
         })
       );
     });
 
-    // Many-to-Many Relationship
-    it('should handle many-to-many relationships', () => {
-      const zodSchema = z.object({
-        students: z.array(
-          z.object({
-            name: z.string(),
-          })
-        ),
-        courses: z.array(
-          z.object({
-            title: z.string(),
-          })
-        ),
+    // Many-to-Many Relationship using zodRef
+    it('should handle many-to-many relationships using zodRef', () => {
+      const studentSchema = z.object({
+        name: z.string(),
       });
 
-      const mongooseSchema = zodToMongoose(zodSchema);
+      const courseSchema = z.object({
+        title: z.string(),
+      });
+
+      const enrollmentSchema = z.object({
+        students: z.array(zodRef('Student', z.string().length(24))), // Array of references to Student
+        courses: z.array(zodRef('Course', z.string().length(24))), // Array of references to Course
+      });
+
+      const mongooseSchema = zodToMongoose(enrollmentSchema);
 
       expect(mongooseSchema.students).toEqual(
         expect.objectContaining({
-          type: [mongoose.Schema.Types.Mixed],
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: 'Student',
           required: true,
         })
       );
 
       expect(mongooseSchema.courses).toEqual(
         expect.objectContaining({
-          type: [mongoose.Schema.Types.Mixed],
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: 'Course',
+          required: true,
+        })
+      );
+    });
+
+    // Optional Reference
+    it('should handle optional references using zodRef', () => {
+      const profileSchema = z.object({
+        bio: z.string(),
+        user: zodRef('User', z.string().length(24)).optional(), // Optional reference to User
+      });
+
+      const mongooseSchema = zodToMongoose(profileSchema);
+
+      expect(mongooseSchema.bio).toEqual(
+        expect.objectContaining({
+          type: String,
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.user).toEqual(
+        expect.objectContaining({
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: false,
+        })
+      );
+    });
+
+    // Array of References
+    it('should handle arrays of references using zodRef', () => {
+      const tagSchema = z.object({
+        name: z.string(),
+      });
+
+      const articleSchema = z.object({
+        title: z.string(),
+        tags: z.array(zodRef('Tag', z.string().length(24))), // Array of references to Tag
+      });
+
+      const mongooseSchema = zodToMongoose(articleSchema);
+
+      expect(mongooseSchema.title).toEqual(
+        expect.objectContaining({
+          type: String,
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.tags).toEqual(
+        expect.objectContaining({
+          type: [mongoose.Schema.Types.ObjectId],
+          ref: 'Tag',
           required: true,
         })
       );
@@ -321,6 +394,32 @@ describe('zodToMongoose', () => {
       const data = { name: 'John', age: 'not-a-number' };
 
       expect(() => zodToObject(zodSchema, data)).toThrowError();
+    });
+
+    it('should handle partial validation when options.partial is true', () => {
+      const zodSchema = z.object({
+        name: z.string(),
+        age: z.number(),
+      });
+
+      const data = { name: 'John' }; // Missing age
+
+      const result = zodToObject(zodSchema, data, { partial: true });
+
+      expect(result).toEqual(data);
+    });
+
+    it('should apply default values during validation', () => {
+      const zodSchema = z.object({
+        name: z.string().default('Anonymous'),
+        age: z.number().default(25),
+      });
+
+      const data = {}; // No fields provided
+
+      const result = zodToObject(zodSchema, data);
+
+      expect(result).toEqual({ name: 'Anonymous', age: 25 });
     });
   });
 });

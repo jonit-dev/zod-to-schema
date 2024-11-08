@@ -1,3 +1,4 @@
+// zodToMongoose.ts
 import mongoose, {
   Document,
   Model,
@@ -22,14 +23,8 @@ import {
 } from 'zod';
 
 /**
- * Converts a Joi schema to a Mongoose SchemaDefinition.
- * @param joiSchema - The Joi schema to convert.
- * @returns A Mongoose SchemaDefinition.
- */
-// Zod to Mongoose Conversion Utility
-
-/**
  * Converts a Zod schema to a Mongoose SchemaDefinition.
+ * Handles basic types and references between models.
  * @param zodSchema - The Zod schema to convert.
  * @returns A Mongoose SchemaDefinition.
  */
@@ -45,8 +40,10 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
     let isOptional = false;
     let hasDefault = false;
     let defaultValue: any;
+    let isRef = false;
+    let refModel: string | undefined;
 
-    // Unwrap optional and default schemas
+    // Unwrap optional, default, and nullable schemas
     while (
       currentSchema instanceof ZodOptional ||
       currentSchema instanceof ZodDefault ||
@@ -62,112 +59,137 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
         currentSchema = currentSchema._def.innerType;
       }
       if (currentSchema instanceof ZodNullable) {
-        // Handle nullable if needed
+        // Handle nullable if needed (e.g., allow null values)
         currentSchema = currentSchema._def.innerType;
       }
     }
 
-    // Map Zod types to Mongoose types
-    switch (currentSchema.constructor) {
-      case ZodString:
-        mongooseField.type = String;
-        const stringSchema = currentSchema as ZodString;
-        stringSchema._def.checks.forEach((check) => {
-          switch (check.kind) {
-            case 'min':
-              mongooseField.minlength = check.value;
-              break;
-            case 'max':
-              mongooseField.maxlength = check.value;
-              break;
-            case 'email':
-              mongooseField.match = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              break;
-            case 'regex':
-              mongooseField.match = check.regex;
-              break;
-            case 'includes':
-              // Handle includes if necessary
-              break;
-            case 'length':
-              mongooseField.length = check.value;
-              break;
-            default:
-              break;
-          }
-        });
-        break;
-
-      case ZodNumber:
-        mongooseField.type = Number;
-        const numberSchema = currentSchema as ZodNumber;
-        numberSchema._def.checks.forEach((check) => {
-          switch (check.kind) {
-            case 'min':
-              mongooseField.min = check.value;
-              break;
-            case 'max':
-              mongooseField.max = check.value;
-              break;
-            case 'int':
-              mongooseField.validate = {
-                validator: Number.isInteger,
-                message: '{VALUE} is not an integer value',
-              };
-              break;
-            default:
-              break;
-          }
-        });
-        break;
-
-      case ZodBoolean:
-        mongooseField.type = Boolean;
-        break;
-
-      case ZodDate:
-        mongooseField.type = Date;
-        break;
-
-      case ZodArray:
-        const arraySchema = currentSchema as ZodArray<any>;
-        const itemType = arraySchema._def.type;
-        switch (itemType.constructor) {
-          case ZodString:
-            mongooseField.type = [String];
-            break;
-          case ZodNumber:
-            mongooseField.type = [Number];
-            break;
-          case ZodBoolean:
-            mongooseField.type = [Boolean];
-            break;
-          case ZodObject:
-            mongooseField.type = [Schema.Types.Mixed];
-            break;
-          default:
-            mongooseField.type = [Schema.Types.Mixed];
+    // Check if the schema is a reference using zodRef
+    if (currentSchema instanceof ZodObject) {
+      const objShape = (currentSchema as ZodObject<any>).shape;
+      if ('_ref' in objShape && 'id' in objShape) {
+        const refSchema = objShape['_ref'];
+        const idSchema = objShape['id'];
+        if (
+          refSchema instanceof ZodLiteral &&
+          typeof refSchema._def.value === 'string' &&
+          idSchema instanceof ZodString &&
+          idSchema._def.checks.some(
+            (check) => check.kind === 'length' && check.value === 24
+          )
+        ) {
+          isRef = true;
+          refModel = refSchema._def.value;
+          // Set type to ObjectId and reference
+          mongooseField.type = Schema.Types.ObjectId;
+          mongooseField.ref = refModel;
         }
-        break;
+      }
+    }
 
-      case ZodEnum:
-        const enumSchema = currentSchema as ZodEnum<any>;
-        mongooseField.type = String;
-        mongooseField.enum = enumSchema.options;
-        break;
+    if (!isRef) {
+      // Map Zod types to Mongoose types
+      switch (currentSchema.constructor) {
+        case ZodString:
+          mongooseField.type = String;
+          const stringSchema = currentSchema as ZodString;
+          stringSchema._def.checks.forEach((check) => {
+            switch (check.kind) {
+              case 'min':
+                mongooseField.minlength = check.value;
+                break;
+              case 'max':
+                mongooseField.maxlength = check.value;
+                break;
+              case 'email':
+                mongooseField.match = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                break;
+              case 'regex':
+                mongooseField.match = check.regex;
+                break;
+              case 'includes':
+                // Handle includes if necessary
+                break;
+              case 'length':
+                mongooseField.length = check.value;
+                break;
+              default:
+                break;
+            }
+          });
+          break;
 
-      case ZodLiteral:
-        const literalSchema = currentSchema as ZodLiteral<any>;
-        mongooseField.type = typeof literalSchema.value;
-        mongooseField.enum = [literalSchema.value];
-        break;
+        case ZodNumber:
+          mongooseField.type = Number;
+          const numberSchema = currentSchema as ZodNumber;
+          numberSchema._def.checks.forEach((check) => {
+            switch (check.kind) {
+              case 'min':
+                mongooseField.min = check.value;
+                break;
+              case 'max':
+                mongooseField.max = check.value;
+                break;
+              case 'int':
+                mongooseField.validate = {
+                  validator: Number.isInteger,
+                  message: '{VALUE} is not an integer value',
+                };
+                break;
+              default:
+                break;
+            }
+          });
+          break;
 
-      case ZodObject:
-        mongooseField.type = Schema.Types.Mixed;
-        break;
+        case ZodBoolean:
+          mongooseField.type = Boolean;
+          break;
 
-      default:
-        mongooseField.type = Schema.Types.Mixed;
+        case ZodDate:
+          mongooseField.type = Date;
+          break;
+
+        case ZodArray:
+          const arraySchema = currentSchema as ZodArray<any>;
+          const itemType = arraySchema._def.type;
+          switch (itemType.constructor) {
+            case ZodString:
+              mongooseField.type = [String];
+              break;
+            case ZodNumber:
+              mongooseField.type = [Number];
+              break;
+            case ZodBoolean:
+              mongooseField.type = [Boolean];
+              break;
+            case ZodObject:
+              mongooseField.type = [Schema.Types.Mixed];
+              break;
+            default:
+              mongooseField.type = [Schema.Types.Mixed];
+          }
+          break;
+
+        case ZodEnum:
+          const enumSchema = currentSchema as ZodEnum<any>;
+          mongooseField.type = String;
+          mongooseField.enum = enumSchema.options;
+          break;
+
+        case ZodLiteral:
+          const literalSchema = currentSchema as ZodLiteral<any>;
+          mongooseField.type = typeof literalSchema.value;
+          mongooseField.enum = [literalSchema.value];
+          break;
+
+        case ZodObject:
+          mongooseField.type = Schema.Types.Mixed;
+          break;
+
+        default:
+          mongooseField.type = Schema.Types.Mixed;
+      }
     }
 
     // Handle default values
@@ -178,12 +200,6 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
     // Handle required fields
     mongooseField.required = !isOptional;
 
-    // Handle uniqueness if Zod schema has refinements or specific markers
-    // Zod does not have a built-in 'unique' method, so this needs to be handled separately
-    // For example, by using a custom Zod refinement or metadata
-    // Here, we assume uniqueness is handled via a custom Zod refinement or external logic
-    // If you have a way to mark fields as unique in Zod, handle it here
-
     // Assign the field to the schema definition
     mongooseSchemaDefinition[key] = mongooseField;
   }
@@ -192,10 +208,10 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
 }
 
 /**
- * Creates a Mongoose model from a Joi schema.
+ * Creates a Mongoose model from a Zod schema.
  * Checks if the model already exists to prevent OverwriteModelError.
  * @param modelName - The name of the model.
- * @param joiSchema - The Joi schema to convert.
+ * @param zodSchema - The Zod schema to convert.
  * @returns A Mongoose model.
  */
 export function createMongooseModel<T extends Document>(
