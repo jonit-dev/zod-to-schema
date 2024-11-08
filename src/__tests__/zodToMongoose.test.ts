@@ -180,16 +180,18 @@ describe('zodToMongoose', () => {
   describe('Relationships', () => {
     // One-to-One Relationship
     it('should handle one-to-one relationships', () => {
-      const zodSchema = z.object({
-        user: z.object({
-          name: z.string(),
-          email: z.string().email(),
+      const userSchema = z.object({
+        name: z.string(),
+        email: z.string().email(),
+        preferences: z.object({
+          theme: z.string(),
+          notifications: z.boolean(),
         }),
       });
 
-      const mongooseSchema = zodToMongoose(zodSchema);
+      const mongooseSchema = zodToMongoose(userSchema);
 
-      expect(mongooseSchema.user).toEqual(
+      expect(mongooseSchema.preferences).toEqual(
         expect.objectContaining({
           type: mongoose.Schema.Types.Mixed,
           required: true,
