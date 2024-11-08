@@ -61,4 +61,6 @@ const prismaSchema = zodToPrisma(
 );
 ```
 
+PS: Remember that prismaSchema output should be saved into a file (prisma.schema) to be used with Prisma.
+
 Check the documentation links above for detailed examples and advanced usage.
