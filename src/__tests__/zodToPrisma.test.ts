@@ -179,7 +179,7 @@ describe('zodToPrisma', () => {
     const userSchema = z.object({
       id: z.string().uuid(),
       name: z.string(),
-      age: z.number().default(18),
+      age: z.number().int().default(18), // Updated to use int()
     });
 
     const result = zodToPrisma(
@@ -189,7 +189,7 @@ describe('zodToPrisma', () => {
     );
 
     expect(result).toContain('model User {');
-    expect(result).toContain('age Int @default(18)');
+    expect(result).toContain('age Int @default(18)'); // Expecting Int now
   });
 
   it('should handle optional fields in Zod schemas', () => {
