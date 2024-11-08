@@ -176,65 +176,149 @@ describe('zodToMongoose', () => {
       age: { type: Number, required: false },
     });
   });
-});
 
-describe('createMongooseModel', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  describe('Relationships', () => {
+    // One-to-One Relationship
+    it('should handle one-to-one relationships', () => {
+      const zodSchema = z.object({
+        user: z.object({
+          name: z.string(),
+          email: z.string().email(),
+        }),
+      });
 
-  it('should create a Mongoose model from a Zod schema', () => {
-    const zodSchema = z.object({
-      title: z.string(),
-      content: z.string(),
+      const mongooseSchema = zodToMongoose(zodSchema);
+
+      expect(mongooseSchema.user).toEqual(
+        expect.objectContaining({
+          type: mongoose.Schema.Types.Mixed,
+          required: true,
+        })
+      );
     });
 
-    const modelName = 'TestModel';
-    const model = createMongooseModel(modelName, zodSchema);
+    // One-to-Many Relationship
+    it('should handle one-to-many relationships', () => {
+      const zodSchema = z.object({
+        author: z.object({
+          name: z.string(),
+        }),
+        posts: z.array(
+          z.object({
+            title: z.string(),
+            content: z.string(),
+          })
+        ),
+      });
 
-    expect(model.modelName).toBe(modelName);
-    expect(mongoose.model).toHaveBeenCalledWith(
-      modelName,
-      expect.any(mongoose.Schema)
-    );
-  });
+      const mongooseSchema = zodToMongoose(zodSchema);
 
-  it('should return the existing model if it already exists', () => {
-    const zodSchema = z.object({
-      title: z.string(),
-      content: z.string(),
+      expect(mongooseSchema.author).toEqual(
+        expect.objectContaining({
+          type: mongoose.Schema.Types.Mixed,
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.posts).toEqual(
+        expect.objectContaining({
+          type: [mongoose.Schema.Types.Mixed],
+          required: true,
+        })
+      );
     });
 
-    const modelName = 'TestModel2';
-    (mongoose.models as any)[modelName] = { modelName };
-    const model = createMongooseModel(modelName, zodSchema);
+    // Many-to-Many Relationship
+    it('should handle many-to-many relationships', () => {
+      const zodSchema = z.object({
+        students: z.array(
+          z.object({
+            name: z.string(),
+          })
+        ),
+        courses: z.array(
+          z.object({
+            title: z.string(),
+          })
+        ),
+      });
 
-    expect(model.modelName).toBe(modelName);
-    expect(mongoose.model).not.toHaveBeenCalled();
+      const mongooseSchema = zodToMongoose(zodSchema);
+
+      expect(mongooseSchema.students).toEqual(
+        expect.objectContaining({
+          type: [mongoose.Schema.Types.Mixed],
+          required: true,
+        })
+      );
+
+      expect(mongooseSchema.courses).toEqual(
+        expect.objectContaining({
+          type: [mongoose.Schema.Types.Mixed],
+          required: true,
+        })
+      );
+    });
   });
-});
 
-describe('zodToObject', () => {
-  it('should validate and return the object if valid', () => {
-    const zodSchema = z.object({
-      name: z.string(),
-      age: z.number(),
+  describe('createMongooseModel', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
     });
 
-    const data = { name: 'John', age: 30 };
-    const result = zodToObject(zodSchema, data);
+    it('should create a Mongoose model from a Zod schema', () => {
+      const zodSchema = z.object({
+        title: z.string(),
+        content: z.string(),
+      });
 
-    expect(result).toEqual(data);
-  });
+      const modelName = 'TestModel';
+      const model = createMongooseModel(modelName, zodSchema);
 
-  it('should throw an error if validation fails', () => {
-    const zodSchema = z.object({
-      name: z.string(),
-      age: z.number(),
+      expect(model.modelName).toBe(modelName);
+      expect(mongoose.model).toHaveBeenCalledWith(
+        modelName,
+        expect.any(mongoose.Schema)
+      );
     });
 
-    const data = { name: 'John', age: 'not-a-number' };
+    it('should return the existing model if it already exists', () => {
+      const zodSchema = z.object({
+        title: z.string(),
+        content: z.string(),
+      });
 
-    expect(() => zodToObject(zodSchema, data)).toThrowError();
+      const modelName = 'TestModel2';
+      (mongoose.models as any)[modelName] = { modelName };
+      const model = createMongooseModel(modelName, zodSchema);
+
+      expect(model.modelName).toBe(modelName);
+      expect(mongoose.model).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('zodToObject', () => {
+    it('should validate and return the object if valid', () => {
+      const zodSchema = z.object({
+        name: z.string(),
+        age: z.number(),
+      });
+
+      const data = { name: 'John', age: 30 };
+      const result = zodToObject(zodSchema, data);
+
+      expect(result).toEqual(data);
+    });
+
+    it('should throw an error if validation fails', () => {
+      const zodSchema = z.object({
+        name: z.string(),
+        age: z.number(),
+      });
+
+      const data = { name: 'John', age: 'not-a-number' };
+
+      expect(() => zodToObject(zodSchema, data)).toThrowError();
+    });
   });
 });
