@@ -2,6 +2,28 @@
 
 Convert Zod schemas to Mongoose and Prisma schemas while maintaining type safety and relationships.
 
+## Why?
+
+When building TypeScript applications with MongoDB or PostgreSQL, you often need to:
+
+1. Define your data models
+2. Set up validation
+3. Create TypeScript interfaces
+4. Configure your database schema
+
+This usually leads to:
+
+- Duplicate code between your validation layer and database schema
+- Potential inconsistencies between TypeScript types and runtime validation
+- Manual work to keep everything in sync
+
+This library solves these problems by:
+
+- Using Zod as a single source of truth for your data models
+- Automatically generating both Mongoose and Prisma schemas
+- Maintaining type safety throughout your application
+- Eliminating the need to manually sync validation rules with database schemas
+
 ## Features
 
 - 🔄 Convert Zod schemas to:
@@ -39,4 +61,4 @@ const prismaSchema = zodToPrisma(
 );
 ```
 
-Check the documentation for detailed examples and advanced usage.
+Check the documentation links above for detailed examples and advanced usage.
