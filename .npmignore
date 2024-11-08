@@ -1,0 +1,37 @@
+# Logs
+logs
+*.log
+
+# Dependency directories
+node_modules/
+
+# Build directories
+dist/
+build/
+
+# Configuration files
+.npmrc
+.env
+
+# Test directories and files
+coverage/
+test/
+tests/
+__tests__/
+__mocks__/
+*.spec.js
+*.test.js
+
+# Documentation
+docs/
+*.md
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
