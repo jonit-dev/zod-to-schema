@@ -26,9 +26,13 @@ import {
  * Converts a Zod schema to a Mongoose SchemaDefinition.
  * Handles basic types and references between models.
  * @param zodSchema - The Zod schema to convert.
+ * @param relationshipMappings - Optional mapping of field names to referenced model names.
  * @returns A Mongoose SchemaDefinition.
  */
-export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
+export function zodToMongoose(
+  zodSchema: ZodObject<any>,
+  relationshipMappings?: Record<string, string>
+): SchemaDefinition {
   const mongooseSchemaDefinition: SchemaDefinition = {};
 
   const shape = zodSchema.shape;
@@ -40,8 +44,6 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
     let isOptional = false;
     let hasDefault = false;
     let defaultValue: any;
-    let isRef = false;
-    let refModel: string | undefined;
 
     // Unwrap optional, default, and nullable schemas
     while (
@@ -59,35 +61,37 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
         currentSchema = currentSchema._def.innerType;
       }
       if (currentSchema instanceof ZodNullable) {
-        // Handle nullable if needed (e.g., allow null values)
         currentSchema = currentSchema._def.innerType;
       }
     }
 
-    // Check if the schema is a reference using zodRef
-    if (currentSchema instanceof ZodObject) {
-      const objShape = (currentSchema as ZodObject<any>).shape;
-      if ('_ref' in objShape && 'id' in objShape) {
-        const refSchema = objShape['_ref'];
-        const idSchema = objShape['id'];
-        if (
-          refSchema instanceof ZodLiteral &&
-          typeof refSchema._def.value === 'string' &&
-          idSchema instanceof ZodString &&
-          idSchema._def.checks.some(
-            (check) => check.kind === 'length' && check.value === 24
-          )
-        ) {
-          isRef = true;
-          refModel = refSchema._def.value;
-          // Set type to ObjectId and reference
-          mongooseField.type = Schema.Types.ObjectId;
-          mongooseField.ref = refModel;
+    // Check if the field is a reference based on relationshipMappings
+    if (relationshipMappings && relationshipMappings[key]) {
+      mongooseField.type = Schema.Types.ObjectId;
+      mongooseField.ref = relationshipMappings[key];
+    } else if (currentSchema instanceof ZodArray) {
+      const arraySchema = currentSchema as ZodArray<any>;
+      const itemType = arraySchema._def.type;
+
+      // Check if the array items are references
+      if (relationshipMappings && relationshipMappings[key]) {
+        mongooseField.type = [Schema.Types.ObjectId];
+        mongooseField.ref = relationshipMappings[key];
+      } else {
+        // Handle non-reference array types
+        if (itemType instanceof ZodString) {
+          mongooseField.type = [String];
+        } else if (itemType instanceof ZodNumber) {
+          mongooseField.type = [Number];
+        } else if (itemType instanceof ZodBoolean) {
+          mongooseField.type = [Boolean];
+        } else if (itemType instanceof ZodObject) {
+          mongooseField.type = [Schema.Types.Mixed];
+        } else {
+          mongooseField.type = [Schema.Types.Mixed];
         }
       }
-    }
-
-    if (!isRef) {
+    } else {
       // Map Zod types to Mongoose types
       switch (currentSchema.constructor) {
         case ZodString:
@@ -108,7 +112,6 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
                 mongooseField.match = check.regex;
                 break;
               case 'includes':
-                // Handle includes if necessary
                 break;
               case 'length':
                 mongooseField.length = check.value;
@@ -148,27 +151,6 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
 
         case ZodDate:
           mongooseField.type = Date;
-          break;
-
-        case ZodArray:
-          const arraySchema = currentSchema as ZodArray<any>;
-          const itemType = arraySchema._def.type;
-          switch (itemType.constructor) {
-            case ZodString:
-              mongooseField.type = [String];
-              break;
-            case ZodNumber:
-              mongooseField.type = [Number];
-              break;
-            case ZodBoolean:
-              mongooseField.type = [Boolean];
-              break;
-            case ZodObject:
-              mongooseField.type = [Schema.Types.Mixed];
-              break;
-            default:
-              mongooseField.type = [Schema.Types.Mixed];
-          }
           break;
 
         case ZodEnum:
@@ -212,11 +194,13 @@ export function zodToMongoose(zodSchema: ZodObject<any>): SchemaDefinition {
  * Checks if the model already exists to prevent OverwriteModelError.
  * @param modelName - The name of the model.
  * @param zodSchema - The Zod schema to convert.
+ * @param relationshipMappings - Optional mapping of field names to referenced model names.
  * @returns A Mongoose model.
  */
 export function createMongooseModel<T extends Document>(
   modelName: string,
-  zodSchema: ZodObject<any>
+  zodSchema: ZodObject<any>,
+  relationshipMappings?: Record<string, string>
 ): Model<T> {
   // Check if the model already exists in Mongoose's model registry
   if (mongoose.models[modelName]) {
@@ -224,7 +208,10 @@ export function createMongooseModel<T extends Document>(
   }
 
   // Convert Zod schema to Mongoose schema definition
-  const mongooseSchemaDefinition: SchemaDefinition = zodToMongoose(zodSchema);
+  const mongooseSchemaDefinition: SchemaDefinition = zodToMongoose(
+    zodSchema,
+    relationshipMappings
+  );
 
   // Create a new Mongoose schema
   const schema = new Schema(mongooseSchemaDefinition, { timestamps: true });

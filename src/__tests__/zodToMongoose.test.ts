@@ -1,7 +1,6 @@
-// tests/zodToMongoose.test.ts
+// zodToMongoose.test.ts
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { zodRef } from '../zodReferences';
 import {
   createMongooseModel,
   zodToMongoose,
@@ -180,19 +179,16 @@ describe('zodToMongoose', () => {
   });
 
   describe('Relationships', () => {
-    // One-to-One Relationship using zodRef
-    it('should handle one-to-one relationships using zodRef', () => {
-      const userSchema = z.object({
-        name: z.string(),
-        email: z.string().email(),
-      });
-
+    // One-to-One Relationship
+    it('should handle one-to-one relationships', () => {
       const profileSchema = z.object({
         bio: z.string(),
-        user: zodRef('User', z.string().length(24)), // Reference to User model
+        user: z.string().length(24), // Reference to User model
       });
 
-      const mongooseSchema = zodToMongoose(profileSchema);
+      const relationshipMappings = { user: 'User' };
+
+      const mongooseSchema = zodToMongoose(profileSchema, relationshipMappings);
 
       expect(mongooseSchema.bio).toEqual(
         expect.objectContaining({
@@ -210,19 +206,17 @@ describe('zodToMongoose', () => {
       );
     });
 
-    // One-to-Many Relationship using zodRef
-    it('should handle one-to-many relationships using zodRef', () => {
-      const authorSchema = z.object({
-        name: z.string(),
-      });
-
+    // One-to-Many Relationship
+    it('should handle one-to-many relationships', () => {
       const postSchema = z.object({
         title: z.string(),
         content: z.string(),
-        author: zodRef('Author', z.string().length(24)), // Reference to Author model
+        author: z.string().length(24), // Reference to Author model
       });
 
-      const mongooseSchema = zodToMongoose(postSchema);
+      const relationshipMappings = { author: 'Author' };
+
+      const mongooseSchema = zodToMongoose(postSchema, relationshipMappings);
 
       expect(mongooseSchema.title).toEqual(
         expect.objectContaining({
@@ -247,22 +241,22 @@ describe('zodToMongoose', () => {
       );
     });
 
-    // Many-to-Many Relationship using zodRef
-    it('should handle many-to-many relationships using zodRef', () => {
-      const studentSchema = z.object({
-        name: z.string(),
-      });
-
-      const courseSchema = z.object({
-        title: z.string(),
-      });
-
+    // Many-to-Many Relationship
+    it('should handle many-to-many relationships', () => {
       const enrollmentSchema = z.object({
-        students: z.array(zodRef('Student', z.string().length(24))), // Array of references to Student
-        courses: z.array(zodRef('Course', z.string().length(24))), // Array of references to Course
+        students: z.array(z.string().length(24)), // Array of references to Student
+        courses: z.array(z.string().length(24)), // Array of references to Course
       });
 
-      const mongooseSchema = zodToMongoose(enrollmentSchema);
+      const relationshipMappings = {
+        students: 'Student',
+        courses: 'Course',
+      };
+
+      const mongooseSchema = zodToMongoose(
+        enrollmentSchema,
+        relationshipMappings
+      );
 
       expect(mongooseSchema.students).toEqual(
         expect.objectContaining({
@@ -282,13 +276,15 @@ describe('zodToMongoose', () => {
     });
 
     // Optional Reference
-    it('should handle optional references using zodRef', () => {
+    it('should handle optional references', () => {
       const profileSchema = z.object({
         bio: z.string(),
-        user: zodRef('User', z.string().length(24)).optional(), // Optional reference to User
+        user: z.string().length(24).optional(), // Optional reference to User
       });
 
-      const mongooseSchema = zodToMongoose(profileSchema);
+      const relationshipMappings = { user: 'User' };
+
+      const mongooseSchema = zodToMongoose(profileSchema, relationshipMappings);
 
       expect(mongooseSchema.bio).toEqual(
         expect.objectContaining({
@@ -307,17 +303,15 @@ describe('zodToMongoose', () => {
     });
 
     // Array of References
-    it('should handle arrays of references using zodRef', () => {
-      const tagSchema = z.object({
-        name: z.string(),
-      });
-
+    it('should handle arrays of references', () => {
       const articleSchema = z.object({
         title: z.string(),
-        tags: z.array(zodRef('Tag', z.string().length(24))), // Array of references to Tag
+        tags: z.array(z.string().length(24)), // Array of references to Tag
       });
 
-      const mongooseSchema = zodToMongoose(articleSchema);
+      const relationshipMappings = { tags: 'Tag' };
+
+      const mongooseSchema = zodToMongoose(articleSchema, relationshipMappings);
 
       expect(mongooseSchema.title).toEqual(
         expect.objectContaining({
