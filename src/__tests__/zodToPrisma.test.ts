@@ -173,4 +173,77 @@ describe('zodToPrisma', () => {
       'Only ZodObject schemas are supported for Prisma model generation.'
     );
   });
+
+  // Additional tests
+  it('should handle default values in Zod schemas', () => {
+    const userSchema = z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      age: z.number().default(18),
+    });
+
+    const result = zodToPrisma(
+      [{ name: 'User', schema: userSchema }],
+      new Map(),
+      new Map()
+    );
+
+    expect(result).toContain('model User {');
+    expect(result).toContain('age Int @default(18)');
+  });
+
+  it('should handle optional fields in Zod schemas', () => {
+    const userSchema = z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      email: z.string().optional(),
+    });
+
+    const result = zodToPrisma(
+      [{ name: 'User', schema: userSchema }],
+      new Map(),
+      new Map()
+    );
+
+    expect(result).toContain('model User {');
+    expect(result).toContain('email String?');
+  });
+
+  it('should handle nested Zod objects', () => {
+    const addressSchema = z.object({
+      street: z.string(),
+      city: z.string(),
+    });
+
+    const userSchema = z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      address: addressSchema,
+    });
+
+    const result = zodToPrisma(
+      [{ name: 'User', schema: userSchema }],
+      new Map(),
+      new Map()
+    );
+
+    expect(result).toContain('model User {');
+    expect(result).toContain('address Json');
+  });
+
+  it('should handle Zod literals correctly', () => {
+    const userSchema = z.object({
+      id: z.string().uuid(),
+      status: z.literal('active'),
+    });
+
+    const result = zodToPrisma(
+      [{ name: 'User', schema: userSchema }],
+      new Map(),
+      new Map()
+    );
+
+    expect(result).toContain('model User {');
+    expect(result).toContain('status String @default("active")');
+  });
 });
