@@ -7,6 +7,7 @@ Convert your Zod schemas to Prisma schema, with automatic handling of relationsh
 ```typescript
 import { z } from 'zod';
 import { zodToPrisma } from 'zod-to-schema';
+import * as fs from 'fs';
 
 // Define your schemas
 const userSchema = z.object({
@@ -25,7 +26,19 @@ const prismaSchema = zodToPrisma(
   modelNameToSchema
 );
 
-// Result:
+// Save the generated schema to your prisma.schema file
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("POSTGRESQL_DATABASE_URL")
+// }
+//
+// generator client {
+//   provider = "prisma-client-js"
+// }
+//
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -66,7 +79,10 @@ const prismaSchema = zodToPrisma(
   modelNameToSchema
 );
 
-// Result:
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -112,7 +128,10 @@ const prismaSchema = zodToPrisma(
   modelNameToSchema
 );
 
-// Result:
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -164,7 +183,10 @@ const prismaSchema = zodToPrisma(
   modelNameToSchema
 );
 
-// Result:
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -201,7 +223,16 @@ const userSchema = z.object({
   }),
 });
 
-// Result:
+const prismaSchema = zodToPrisma(
+  [{ name: 'User', schema: userSchema }],
+  new Map([[userSchema, 'User']]),
+  new Map([['User', userSchema]])
+);
+
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // enum RoleEnum {
 //   ADMIN
 //   USER
@@ -230,7 +261,16 @@ const userSchema = z.object({
   createdAt: z.date().default(new Date()),
 });
 
-// Result:
+const prismaSchema = zodToPrisma(
+  [{ name: 'User', schema: userSchema }],
+  new Map([[userSchema, 'User']]),
+  new Map([['User', userSchema]])
+);
+
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -248,7 +288,16 @@ const userSchema = z.object({
   website: z.string().nullable(),
 });
 
-// Result:
+const prismaSchema = zodToPrisma(
+  [{ name: 'User', schema: userSchema }],
+  new Map([[userSchema, 'User']]),
+  new Map([['User', userSchema]])
+);
+
+// Save to prisma.schema
+fs.writeFileSync('./prisma/schema.prisma', prismaSchema);
+
+// Result in schema.prisma:
 // model User {
 //   id String @id @default(uuid())
 //   name String
@@ -257,4 +306,9 @@ const userSchema = z.object({
 // }
 ```
 
-Note: The utility automatically adds an `id` field with UUID as default if not provided in the schema. It also handles email fields by automatically making them unique.
+Note:
+
+- The utility automatically adds an `id` field with UUID as default if not provided in the schema
+- It handles email fields by automatically making them unique
+- The generated schema includes the necessary Prisma datasource and generator configurations
+- Always save the generated schema to your `prisma/schema.prisma` file to use it with Prisma CLI tools
