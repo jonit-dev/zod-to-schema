@@ -140,7 +140,7 @@ describe('zodToMongoose', () => {
 
     expect(mongooseSchema.user).toEqual(
       expect.objectContaining({
-        type: expect.any(Object),
+        type: mongoose.Schema.Types.Mixed,
         required: true,
       })
     );
