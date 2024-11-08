@@ -11,7 +11,8 @@
     "declaration": true,
     "outDir": "dist",
     "allowJs": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "useUnknownInCatchVariables": false
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
