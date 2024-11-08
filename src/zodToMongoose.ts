@@ -65,17 +65,14 @@ export function zodToMongoose(
       }
     }
 
-    // Check if the field is a reference based on relationshipMappings
-    if (relationshipMappings && relationshipMappings[key]) {
-      mongooseField.type = Schema.Types.ObjectId;
-      mongooseField.ref = relationshipMappings[key];
-    } else if (currentSchema instanceof ZodArray) {
+    // First, check if the field is an array
+    if (currentSchema instanceof ZodArray) {
       const arraySchema = currentSchema as ZodArray<any>;
       const itemType = arraySchema._def.type;
 
-      // Check if the array items are references
       if (relationshipMappings && relationshipMappings[key]) {
-        mongooseField.type = [Schema.Types.ObjectId];
+        // Array of references
+        mongooseField.type = [mongoose.Schema.Types.ObjectId];
         mongooseField.ref = relationshipMappings[key];
       } else {
         // Handle non-reference array types
@@ -86,11 +83,17 @@ export function zodToMongoose(
         } else if (itemType instanceof ZodBoolean) {
           mongooseField.type = [Boolean];
         } else if (itemType instanceof ZodObject) {
-          mongooseField.type = [Schema.Types.Mixed];
+          mongooseField.type = [mongoose.Schema.Types.Mixed];
         } else {
-          mongooseField.type = [Schema.Types.Mixed];
+          mongooseField.type = [mongoose.Schema.Types.Mixed];
         }
+
+        // Optionally, you can handle nested validations here if needed
       }
+    } else if (relationshipMappings && relationshipMappings[key]) {
+      // Single reference
+      mongooseField.type = mongoose.Schema.Types.ObjectId;
+      mongooseField.ref = relationshipMappings[key];
     } else {
       // Map Zod types to Mongoose types
       switch (currentSchema.constructor) {
@@ -166,11 +169,11 @@ export function zodToMongoose(
           break;
 
         case ZodObject:
-          mongooseField.type = Schema.Types.Mixed;
+          mongooseField.type = mongoose.Schema.Types.Mixed;
           break;
 
         default:
-          mongooseField.type = Schema.Types.Mixed;
+          mongooseField.type = mongoose.Schema.Types.Mixed;
       }
     }
 
