@@ -1,6 +1,6 @@
 {
   "name": "zod-to-schema",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Convert Zod schemas to Mongoose and Prisma schemas while maintaining type safety and relationships",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
