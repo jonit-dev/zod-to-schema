@@ -1,2 +1,2 @@
-export { zodToMongoose } from './zodToMongoose';
-export { zodToPrisma } from './zodToPrisma';
+export * from './zodToMongoose';
+export * from './zodToPrisma';
